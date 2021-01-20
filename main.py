@@ -10,6 +10,8 @@ import numpy as np
 import os
 import PIL
 from tensorflow.keras import layers
+from tensorflow import keras
+from tensorflow.keras import callbacks
 import time
 from IPython import display
 import tensorflow_datasets as tfds
@@ -46,21 +48,25 @@ BUFFER_SIZE = 60000
 BATCH_SIZE = 1
 
 # Batch and shuffle the data
-train_dataset = tfds.load('tensorflowdb', split='train', as_supervised=True, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
-
-
-# ---- Training loop ----
+# train_dataset = tfds.load('tensorflowdb', split='train', as_supervised=True, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
+train_dataset = tfds.load('oneline45', split='train', as_supervised=False, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
 for i in train_dataset:
-    print(i)
+    # print(">>>>> i.image : ", i.get('image'), "\n>>>>> i.label : ", i.get('label'))
     break
 
-def normalize_image(image, label):
-    return (tf.cast(image, tf.float32) - 127.5) / 127.5, label
+# ---- Tensorboard ----
+# logdir = 'logs'  # folder where to put logs
+# writer = tf.summary.create_file_writer(logdir)
+
+def normalize_image(ele):
+    return (tf.cast(ele.get('image'), tf.float32) - 127.5) / 127.5, ele.get('label')
+
 train_dataset = train_dataset.map(normalize_image)
 
 for i in train_dataset:
-    print(i)
+    print(">>>>> train_dataset normalized : ", i)
     break
+
 
 @tf.function
 def train_step(images):
@@ -81,14 +87,29 @@ def train_step(images):
     generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
     discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
 
+
 def train(dataset, epochs):
     for epoch in range(epochs):
         start = time.time()
 
-        print("Start epoch :", epoch)
+        print(" >>>>> Starting epoch : ", epoch)
 
         for image_batch in dataset:
+            # ---------- Tensorboard graph
+            # tf.summary.trace_on(graph=True, profiler=True)
+            # ---------- Tensorboard graph
             train_step(image_batch[0])
+            # ---------- Tensorboard graph
+            # with writer.as_default():
+                # tf.summary.trace_export(
+                        # name="Training my model !",
+                        # step=0,
+            #             profiler_outdir='logs/')
+            # ---------- Tensorboard graph
+
+            # ---- Tensorboard ----
+            # with writer.as_default():
+                # tf.summary.flush(writer=None)
 
         # Produce images for the GIF as we go
         display.clear_output(wait=True)

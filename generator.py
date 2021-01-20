@@ -11,8 +11,7 @@ def make_generator_model():
     model.add(layers.Reshape((4, 4, 1024)))
     assert model.output_shape == (None, 4, 4, 1024) # Note: None is the batch size
 
-
-    def layer(depth, conv, stride) :
+    def layer(depth, conv, stride):
         w = model.output_shape[1]
         model.add(layers.Conv2DTranspose(depth, (conv, conv), strides=(stride, stride), padding='same', use_bias=False))
         assert model.output_shape == (None, w * stride, w * stride, depth)
