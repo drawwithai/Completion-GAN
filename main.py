@@ -42,7 +42,7 @@ manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
 # ---- Training loops settings ----
 EPOCHS = 500
 BUFFER_SIZE = 60000
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 num_examples_to_generate = BATCH_SIZE
 
 # Batch and shuffle the data
@@ -141,21 +141,24 @@ def train(maskedimages, fullimages, epochs):
     else:
         print("Initializing from scratch.")
 
+    maskitr = iter(maskedimages)
+    fullitr = iter(fullimages)
+
     for epoch in range(epochs):
         start = time.time()
 
         print(" >>>>> Starting epoch : ", epoch)
 
-        maskitr = iter(maskedimages)
-        fullitr = iter(fullimages)
+        try:
+            maskbatch = next(maskitr)
+            fullbatch = next(fullitr)
+        except StopIteration:
+            maskitr = iter(maskedimages)
+            fullitr = iter(fullimages)
+            maskbatch = next(maskitr)
+            fullbatch = next(fullitr)
 
-        while True:
-            try:
-                maskbatch = next(maskitr)
-                fullbatch = next(fullitr)
-                train_step(maskbatch[0], fullbatch[0])
-            except StopIteration:
-                break
+        train_step(maskbatch[0], fullbatch[0])
 
         template = 'Epoch {}, Generator Loss: {}, Discriminator Loss: {}'
         print (template.format(epoch+1,
@@ -174,7 +177,7 @@ def train(maskedimages, fullimages, epochs):
         # Save the model every 15 epochs
         checkpoint.step.assign_add(1)
         if (epoch + 1) % 25 == 0:
-            path = manager.save(file_prefix = checkpoint_prefix)
+            path = manager.save()
             print("Saved checkpoint for step {}: {}".format(int(checkpoint.step), path))
 
         print ('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
@@ -193,6 +196,7 @@ def generate_and_save_images(model, epoch, test_input):
     fig = plt.figure(figsize=(4,4))
 
     for i in range(predictions.shape[0]):
+        if 16 <= i : break
         plt.subplot(4, 4, i+1)
         plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gray')
         plt.axis('off')
