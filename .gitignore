@@ -1,3 +1,4 @@
 *.png
 training_checkpoints
 logs/
+__pycache__/

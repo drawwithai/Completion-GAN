@@ -45,7 +45,7 @@ num_examples_to_generate = 16
 seed = tf.random.normal([num_examples_to_generate, noise_dim]) # random seed, we use the same over time
 
 BUFFER_SIZE = 60000
-BATCH_SIZE = 1
+BATCH_SIZE = 8
 
 # Batch and shuffle the data
 # train_dataset = tfds.load('tensorflowdb', split='train', as_supervised=True, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
@@ -58,6 +58,9 @@ for i in train_dataset:
 # logdir = 'logs'  # folder where to put logs
 # writer = tf.summary.create_file_writer(logdir)
 
+# def normalize_image(img, label):
+#     return (tf.cast(img, tf.float32) - 127.5) / 127.5, label
+
 def normalize_image(ele):
     return (tf.cast(ele.get('image'), tf.float32) - 127.5) / 127.5, ele.get('label')
 
@@ -67,6 +70,8 @@ for i in train_dataset:
     print(">>>>> train_dataset normalized : ", i)
     break
 
+generator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
+discriminator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
 
 @tf.function
 def train_step(images):
@@ -87,6 +92,8 @@ def train_step(images):
     generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
     discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
 
+    generator_metric(gen_loss)
+    discriminator_metric(disc_loss)
 
 def train(dataset, epochs):
     for epoch in range(epochs):
@@ -110,6 +117,14 @@ def train(dataset, epochs):
             # ---- Tensorboard ----
             # with writer.as_default():
                 # tf.summary.flush(writer=None)
+
+        template = 'Epoch {}, Generator Loss: {}, Discriminator Loss: {}'
+        print (template.format(epoch+1,
+            generator_metric.result(),
+            discriminator_metric.result()))
+
+        generator_metric.reset_states()
+        discriminator_metric.reset_states()
 
         # Produce images for the GIF as we go
         display.clear_output(wait=True)
