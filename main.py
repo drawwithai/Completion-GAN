@@ -50,7 +50,7 @@ BUFFER_SIZE = 60000
 BATCH_SIZE = 16
 
 # Batch and shuffle the data
-# train_dataset = tfds.load('tensorflowdb', split='train', as_supervised=True, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
+# masked_dataset = tfds.load('tensorflowdb', split='train', as_supervised=True, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
 
 
 def load_online45() :
@@ -62,12 +62,12 @@ def load_online45() :
     ds = ds.map(normalize_image)
 
     for i in ds:
-        print(">>>>> train_dataset normalized : ", i)
+        print(">>>>> masked_dataset normalized : ", i)
         break
 
     return ds
 
-def load_folder() :
+def load_folder(path) :
 
     def decode_img(img):
         # convert the compressed string to a 3D uint8 tensor
@@ -89,18 +89,19 @@ def load_folder() :
         img = (tf.cast(img, tf.float32) - 127.5) / 127.5
         return img, label
 
-    ds = tf.data.Dataset.list_files(str('data/*'), shuffle=False)
+    ds = tf.data.Dataset.list_files(path, shuffle=False)
     ds = ds.map(process_path, num_parallel_calls=-1)
     ds = ds.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
     ds = ds.cache().prefetch(-1)
 
     for i in ds:
-        print(">>>>> train_dataset normalized : ", i)
+        print(">>>>> dataset normalized : ", i)
         break
 
     return ds
 
-train_dataset = load_folder()
+masked_dataset = load_folder('data/mask/*')
+full_dataset = load_folder('data/full/*')
 
 # ---- Tensorboard ----
 # logdir = 'logs'  # folder where to put logs
@@ -113,13 +114,13 @@ generator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
 discriminator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
 
 @tf.function
-def train_step(images):
+def train_step(masked, full):
     noise = tf.random.normal([BATCH_SIZE, noise_dim])
 
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
         generated_images = generator(noise, training=True)
 
-        real_output = discriminator(images, training=True)
+        real_output = discriminator(full, training=True)
         fake_output = discriminator(generated_images, training=True)
 
         gen_loss = gan_generator.generator_loss(fake_output)
@@ -134,7 +135,7 @@ def train_step(images):
     generator_metric(gen_loss)
     discriminator_metric(disc_loss)
 
-def train(dataset, epochs):
+def train(maskedimages, fullimages, epochs):
 
     checkpoint.restore(manager.latest_checkpoint)
     if manager.latest_checkpoint:
@@ -147,22 +148,16 @@ def train(dataset, epochs):
 
         print(" >>>>> Starting epoch : ", epoch)
 
-        for image_batch in dataset:
-            # ---------- Tensorboard graph
-            # tf.summary.trace_on(graph=True, profiler=True)
-            # ---------- Tensorboard graph
-            train_step(image_batch[0])
-            # ---------- Tensorboard graph
-            # with writer.as_default():
-                # tf.summary.trace_export(
-                        # name="Training my model !",
-                        # step=0,
-            #             profiler_outdir='logs/')
-            # ---------- Tensorboard graph
+        maskitr = iter(maskedimages)
+        fullitr = iter(fullimages)
 
-            # ---- Tensorboard ----
-            # with writer.as_default():
-                # tf.summary.flush(writer=None)
+        while True:
+            try:
+                maskbatch = next(maskitr)
+                fullbatch = next(fullitr)
+                train_step(maskbatch[0], fullbatch[0])
+            except StopIteration:
+                break
 
         template = 'Epoch {}, Generator Loss: {}, Discriminator Loss: {}'
         print (template.format(epoch+1,
@@ -189,7 +184,7 @@ def train(dataset, epochs):
         # Generate after the final epoch
         display.clear_output(wait=True)
         generate_and_save_images(generator,
-                                 epochs,
+                                 9999,
                                  seed)
 
 def generate_and_save_images(model, epoch, test_input):
@@ -209,4 +204,4 @@ def generate_and_save_images(model, epoch, test_input):
 
 if not os.path.exists('./results'):
     os.mkdir('./results')
-train(train_dataset, EPOCHS)
+train(masked_dataset, full_dataset, EPOCHS)
