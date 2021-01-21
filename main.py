@@ -32,10 +32,12 @@ discriminator = gan_discriminator.make_discriminator_model()
 # ---- Checkpoints settings ----
 checkpoint_dir = './training_checkpoints'
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
-checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
-                                 discriminator_optimizer=discriminator_optimizer,
-                                 generator=generator,
-                                 discriminator=discriminator)
+checkpoint = tf.train.Checkpoint(step=tf.Variable(1),
+    generator_optimizer=generator_optimizer,
+    discriminator_optimizer=discriminator_optimizer,
+    generator=generator,
+    discriminator=discriminator)
+manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
 
 # ---- Training loops settings ----
 EPOCHS = 500
@@ -49,6 +51,7 @@ BATCH_SIZE = 16
 
 # Batch and shuffle the data
 # train_dataset = tfds.load('tensorflowdb', split='train', as_supervised=True, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
+
 
 def load_online45() :
     ds = tfds.load('oneline45', split='train', as_supervised=False, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
@@ -64,7 +67,40 @@ def load_online45() :
 
     return ds
 
-train_dataset = load_online45()
+def load_folder() :
+
+    def decode_img(img):
+        # convert the compressed string to a 3D uint8 tensor
+        img = tf.image.decode_jpeg(img, channels=1)
+        # resize the image to the desired size
+        return tf.image.resize(img, [512, 512])
+
+    def get_label(file_path):
+        # convert the path to a list of path components
+        parts = tf.strings.split(file_path, os.path.sep)
+        # Integer encode the label
+        return file_path
+
+    def process_path(file_path):
+        label = get_label(file_path)
+        # load the raw data from the file as a string
+        img = tf.io.read_file(file_path)
+        img = decode_img(img)
+        img = (tf.cast(img, tf.float32) - 127.5) / 127.5
+        return img, label
+
+    ds = tf.data.Dataset.list_files(str('data/*'), shuffle=False)
+    ds = ds.map(process_path, num_parallel_calls=-1)
+    ds = ds.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
+    ds = ds.cache().prefetch(-1)
+
+    for i in ds:
+        print(">>>>> train_dataset normalized : ", i)
+        break
+
+    return ds
+
+train_dataset = load_folder()
 
 # ---- Tensorboard ----
 # logdir = 'logs'  # folder where to put logs
@@ -99,6 +135,13 @@ def train_step(images):
     discriminator_metric(disc_loss)
 
 def train(dataset, epochs):
+
+    checkpoint.restore(manager.latest_checkpoint)
+    if manager.latest_checkpoint:
+        print("Restored from {}".format(manager.latest_checkpoint))
+    else:
+        print("Initializing from scratch.")
+
     for epoch in range(epochs):
         start = time.time()
 
@@ -136,8 +179,10 @@ def train(dataset, epochs):
                                  seed)
 
         # Save the model every 15 epochs
-        if (epoch + 1) % 50 == 0:
-            checkpoint.save(file_prefix = checkpoint_prefix)
+        checkpoint.step.assign_add(1)
+        if (epoch + 1) % 25 == 0:
+            path = manager.save(file_prefix = checkpoint_prefix)
+            print("Saved checkpoint for step {}: {}".format(int(checkpoint.step), path))
 
         print ('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
 
@@ -159,8 +204,9 @@ def generate_and_save_images(model, epoch, test_input):
         plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gray')
         plt.axis('off')
 
-    plt.savefig('results/image_at_epoch_{:04d}.png'.format(epoch))
+    plt.savefig('./results/image_at_epoch_{:04d}.png'.format(epoch))
     #plt.show()
 
-os.mkdir('results')
+if not os.path.exists('./results'):
+    os.mkdir('./results')
 train(train_dataset, EPOCHS)
