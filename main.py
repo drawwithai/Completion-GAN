@@ -41,13 +41,9 @@ manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
 
 # ---- Training loops settings ----
 EPOCHS = 500
-noise_dim = 100
-num_examples_to_generate = 16
-
-seed = tf.random.normal([num_examples_to_generate, noise_dim]) # random seed, we use the same over time
-
 BUFFER_SIZE = 60000
 BATCH_SIZE = 16
+num_examples_to_generate = BATCH_SIZE
 
 # Batch and shuffle the data
 # masked_dataset = tfds.load('tensorflowdb', split='train', as_supervised=True, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
@@ -103,6 +99,9 @@ def load_folder(path) :
 masked_dataset = load_folder('data/mask/*')
 full_dataset = load_folder('data/full/*')
 
+seed = next(iter(masked_dataset))
+print(seed)
+
 # ---- Tensorboard ----
 # logdir = 'logs'  # folder where to put logs
 # writer = tf.summary.create_file_writer(logdir)
@@ -115,10 +114,9 @@ discriminator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
 
 @tf.function
 def train_step(masked, full):
-    noise = tf.random.normal([BATCH_SIZE, noise_dim])
 
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-        generated_images = generator(noise, training=True)
+        generated_images = generator(masked, training=True)
 
         real_output = discriminator(full, training=True)
         fake_output = discriminator(generated_images, training=True)
