@@ -38,21 +38,33 @@ checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
                                  discriminator=discriminator)
 
 # ---- Training loops settings ----
-EPOCHS = 50
+EPOCHS = 500
 noise_dim = 100
 num_examples_to_generate = 16
 
 seed = tf.random.normal([num_examples_to_generate, noise_dim]) # random seed, we use the same over time
 
 BUFFER_SIZE = 60000
-BATCH_SIZE = 8
+BATCH_SIZE = 16
 
 # Batch and shuffle the data
 # train_dataset = tfds.load('tensorflowdb', split='train', as_supervised=True, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
-train_dataset = tfds.load('oneline45', split='train', as_supervised=False, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
-for i in train_dataset:
-    # print(">>>>> i.image : ", i.get('image'), "\n>>>>> i.label : ", i.get('label'))
-    break
+
+def load_online45() :
+    ds = tfds.load('oneline45', split='train', as_supervised=False, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
+
+    def normalize_image(ele):
+        return (tf.cast(ele.get('image'), tf.float32) - 127.5) / 127.5, ele.get('label')
+
+    ds = ds.map(normalize_image)
+
+    for i in ds:
+        print(">>>>> train_dataset normalized : ", i)
+        break
+
+    return ds
+
+train_dataset = load_online45()
 
 # ---- Tensorboard ----
 # logdir = 'logs'  # folder where to put logs
@@ -60,15 +72,6 @@ for i in train_dataset:
 
 # def normalize_image(img, label):
 #     return (tf.cast(img, tf.float32) - 127.5) / 127.5, label
-
-def normalize_image(ele):
-    return (tf.cast(ele.get('image'), tf.float32) - 127.5) / 127.5, ele.get('label')
-
-train_dataset = train_dataset.map(normalize_image)
-
-for i in train_dataset:
-    print(">>>>> train_dataset normalized : ", i)
-    break
 
 generator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
 discriminator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
@@ -133,7 +136,7 @@ def train(dataset, epochs):
                                  seed)
 
         # Save the model every 15 epochs
-        if (epoch + 1) % 5 == 0:
+        if (epoch + 1) % 50 == 0:
             checkpoint.save(file_prefix = checkpoint_prefix)
 
         print ('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
@@ -156,7 +159,8 @@ def generate_and_save_images(model, epoch, test_input):
         plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gray')
         plt.axis('off')
 
-    plt.savefig('image_at_epoch_{:04d}.png'.format(epoch))
+    plt.savefig('results/image_at_epoch_{:04d}.png'.format(epoch))
     #plt.show()
 
+os.mkdir('results')
 train(train_dataset, EPOCHS)

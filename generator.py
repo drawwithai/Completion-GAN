@@ -18,15 +18,15 @@ def make_generator_model():
         model.add(layers.BatchNormalization())
         model.add(layers.LeakyReLU())
 
-    layer(1024, 5, 1)   # 4x4
-    layer(512, 5, 2)    # 8x8
-    layer(256, 5, 2)    # 16x16
-    layer(128, 5, 2)    # 32x32
-    layer(64, 5, 2)     # 64x64
-    layer(32, 5, 2)     # 128
-    layer(16, 5, 2)     # 256
+    layer(1024, 7, 1)   # 4x4
+    layer(512, 7, 2)    # 8x8
+    layer(256, 7, 2)    # 16x16
+    layer(128, 7, 2)    # 32x32
+    layer(64, 7, 2)     # 64x64
+    layer(32, 7, 2)     # 128
+    layer(16, 7, 2)     # 256
 
-    model.add(layers.Conv2DTranspose(1, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
+    model.add(layers.Conv2DTranspose(1, (7, 7), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
     assert model.output_shape == (None, 512, 512, 1)
 
     return model
