@@ -40,9 +40,9 @@ checkpoint = tf.train.Checkpoint(step=tf.Variable(1),
 manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
 
 # ---- Training loops settings ----
-EPOCHS = 500
+EPOCHS = 200
 BUFFER_SIZE = 60000
-BATCH_SIZE = 32
+BATCH_SIZE = 20
 num_examples_to_generate = BATCH_SIZE
 
 # Batch and shuffle the data
@@ -191,7 +191,7 @@ def train(maskedimages, fullimages, epochs):
 def generate_and_save_images(model, epoch, test_input):
     # Notice `training` is set to False.
     # This is so all layers run in inference mode (batchnorm).
-    predictions = model(test_input, training=False)
+    predictions = model(test_input[0], training=False)
 
     fig = plt.figure(figsize=(4,4))
 
@@ -202,6 +202,7 @@ def generate_and_save_images(model, epoch, test_input):
         plt.axis('off')
 
     plt.savefig('./results/image_at_epoch_{:04d}.png'.format(epoch))
+    plt.close()
     #plt.show()
 
 if not os.path.exists('./results'):
