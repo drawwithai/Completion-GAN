@@ -29,6 +29,9 @@ discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
 generator = gan_generator.make_generator_model()
 discriminator = gan_discriminator.make_discriminator_model()
 
+tf.keras.utils.plot_model(generator, "generator.png", show_shapes=True)
+tf.keras.utils.plot_model(discriminator, "discriminator.png", show_shapes=True)
+
 # ---- Checkpoints settings ----
 checkpoint_dir = './training_checkpoints'
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
@@ -42,7 +45,7 @@ manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
 # ---- Training loops settings ----
 EPOCHS = 200
 BUFFER_SIZE = 60000
-BATCH_SIZE = 20
+BATCH_SIZE = 32
 num_examples_to_generate = BATCH_SIZE
 
 # Batch and shuffle the data
@@ -63,7 +66,7 @@ def load_online45() :
 
     return ds
 
-def load_folder(path) :
+def load_folder(path, masks_path=None) :
 
     def decode_img(img):
         # convert the compressed string to a 3D uint8 tensor
@@ -83,24 +86,39 @@ def load_folder(path) :
         img = tf.io.read_file(file_path)
         img = decode_img(img)
         img = (tf.cast(img, tf.float32) - 127.5) / 127.5
-        return img, label
+        return img
 
-    ds = tf.data.Dataset.list_files(path, shuffle=False)
-    ds = ds.map(process_path, num_parallel_calls=-1)
-    ds = ds.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
-    ds = ds.cache().prefetch(-1)
+    if masks_path is None :
 
-    for i in ds:
-        print(">>>>> dataset normalized : ", i)
-        break
+        ds = tf.data.Dataset.list_files(path, shuffle=False)
+        ds = ds.map(process_path, num_parallel_calls=-1)
+        ds = ds.shuffle(BUFFER_SIZE)
+
+    else :
+
+        ds = tf.data.Dataset.list_files(path, shuffle=False)
+        ds = ds.map(process_path, num_parallel_calls=-1)
+        ds = ds.shuffle(BUFFER_SIZE)
+
+        mask = tf.data.Dataset.list_files(masks_path, shuffle=False)
+        mask = mask.map(process_path, num_parallel_calls=-1)
+        mask = mask.repeat(ds.cardinality()).shuffle(BUFFER_SIZE)
+
+        ds = tf.data.Dataset.zip((ds, mask))
+
+    ds = ds.batch(BATCH_SIZE).cache().prefetch(-1)
+
+    print(ds)
+    # for i in ds:
+    #     print(">>>>> dataset normalized : ", i)
+    #     break
 
     return ds
 
-masked_dataset = load_folder('data/mask/*')
+masked_dataset = load_folder('data/masked/*', 'data/masks/*')
 full_dataset = load_folder('data/full/*')
 
 seed = next(iter(masked_dataset))
-print(seed)
 
 # ---- Tensorboard ----
 # logdir = 'logs'  # folder where to put logs
@@ -158,7 +176,7 @@ def train(maskedimages, fullimages, epochs):
             maskbatch = next(maskitr)
             fullbatch = next(fullitr)
 
-        train_step(maskbatch[0], fullbatch[0])
+        train_step(maskbatch, fullbatch)
 
         template = 'Epoch {}, Generator Loss: {}, Discriminator Loss: {}'
         print (template.format(epoch+1,
