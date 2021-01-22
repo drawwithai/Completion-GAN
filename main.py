@@ -15,6 +15,7 @@ from tensorflow.keras import callbacks
 import time
 from IPython import display
 import tensorflow_datasets as tfds
+import cv2
 
 print(tf.__version__)
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
@@ -50,8 +51,12 @@ dataset = tfds.load('oneline45', split='train', as_supervised=False, batch_size=
 
 # ---- MASKING ----
 # ---- Preparing mask ----
-# Loading mask image file
-mask = tf.Variable(imread("mask.jpg"), dtype='uint8')
+# Generating mask
+white_bg = np.ones([512, 512], dtype=np.uint8)
+white_bg.fill(255)
+mask = cv2.circle(white_bg, (260, 300), 225, (0,0,0), -1)
+mask = cv2.bitwise_and(white_bg, mask)
+mask = tf.Variable(mask, dtype='uint8')
 mask = tf.reshape(mask, [512, 512, 1])  # We need mask to have only 1 channel, not 3
 
 # ---- Normalizing mask and every image of dataset ----
@@ -75,7 +80,7 @@ print(" >>>>> Masked images of dataset")
 
 # ---- Generating seed ----
 seed = next(iter(dataset_masked))
-print(seed)
+print(">>>>> Seed : ", seed)
 
 # ---- Tensorboard ----
 # logdir = 'logs'  # folder where to put logs
