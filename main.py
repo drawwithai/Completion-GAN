@@ -1,11 +1,13 @@
 #!/usr/bin/python3.7
-
 import generator as gan_generator
 from generator import *
 import discriminator as gan_discriminator
+import masks
+from masks import *
 from discriminator import *
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from matplotlib.image import imread
 import numpy as np
 import os
 import PIL
@@ -36,18 +38,19 @@ tf.keras.utils.plot_model(discriminator, "discriminator.png", show_shapes=True)
 checkpoint_dir = './training_checkpoints'
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
 checkpoint = tf.train.Checkpoint(step=tf.Variable(1),
-    generator_optimizer=generator_optimizer,
-    discriminator_optimizer=discriminator_optimizer,
-    generator=generator,
-    discriminator=discriminator)
+        generator_optimizer=generator_optimizer,
+        discriminator_optimizer=discriminator_optimizer,
+        generator=generator,
+        discriminator=discriminator)
 manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
 
 # ---- Training loops settings ----
 EPOCHS = 200
 BUFFER_SIZE = 60000
-BATCH_SIZE = 32
+BATCH_SIZE = 5
 num_examples_to_generate = BATCH_SIZE
 
+<<<<<<< HEAD
 # Batch and shuffle the data
 # masked_dataset = tfds.load('tensorflowdb', split='train', as_supervised=True, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
 
@@ -67,19 +70,23 @@ def load_online45() :
     return ds
 
 def load_folder(path, masks_path=None) :
+=======
+# ---- Loading Dataset ----
+dataset = tfds.load('oneline45', split='train', as_supervised=False, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
+>>>>>>> auto_mask
 
-    def decode_img(img):
-        # convert the compressed string to a 3D uint8 tensor
-        img = tf.image.decode_jpeg(img, channels=1)
-        # resize the image to the desired size
-        return tf.image.resize(img, [512, 512])
+# ---- Get random mask ----
+mask = masks.generate_random_mask()
 
-    def get_label(file_path):
-        # convert the path to a list of path components
-        parts = tf.strings.split(file_path, os.path.sep)
-        # Integer encode the label
-        return file_path
+# ---- Normalizing mask and every image of dataset ----
+def normalize_image(ele):
+    if isinstance(ele, dict):  # elements from dataset are dict
+        return (tf.cast(ele.get('image'), tf.float32) - 127.5) / 127.5
+    else:  # mask (or other directly loaded images) are not dict
+        return (tf.cast(ele, tf.float32) - 127.5) / 127.5
+    
 
+<<<<<<< HEAD
     def process_path(file_path):
         label = get_label(file_path)
         # load the raw data from the file as a string
@@ -119,20 +126,32 @@ masked_dataset = load_folder('data/masked/*', 'data/masks/*')
 full_dataset = load_folder('data/full/*')
 
 seed = next(iter(masked_dataset))
+=======
+mask = normalize_image(mask)
+mask = tf.add(tf.multiply(mask, 0.5), 0.5)  # set max to 0 - 1 values instead of 0 - 255
+print(" >>>>> Normalized mask")
+dataset = dataset.map(normalize_image)
+print(" >>>>> Normalized dataset")
+
+# ---- Creating masked dataset ----
+dataset_masked = dataset
+dataset_masked = dataset_masked.map(lambda ele: ele * mask)  # multiply image by mask to apply it
+print(" >>>>> Masked images of dataset")
+
+# ---- Generating seed ----
+seed = next(iter(dataset_masked))
+print(">>>>> Seed : ", seed)
+>>>>>>> auto_mask
 
 # ---- Tensorboard ----
 # logdir = 'logs'  # folder where to put logs
 # writer = tf.summary.create_file_writer(logdir)
-
-# def normalize_image(img, label):
-#     return (tf.cast(img, tf.float32) - 127.5) / 127.5, label
 
 generator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
 discriminator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
 
 @tf.function
 def train_step(masked, full):
-
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
         generated_images = generator(masked, training=True)
 
@@ -153,20 +172,19 @@ def train_step(masked, full):
 
 def train(maskedimages, fullimages, epochs):
 
+    # Restore checkpoint if found
     checkpoint.restore(manager.latest_checkpoint)
     if manager.latest_checkpoint:
-        print("Restored from {}".format(manager.latest_checkpoint))
+        print(" >>>>> Restored from {}".format(manager.latest_checkpoint))
     else:
-        print("Initializing from scratch.")
+        print(" >>>>> Initializing from scratch.")
 
     maskitr = iter(maskedimages)
     fullitr = iter(fullimages)
 
     for epoch in range(epochs):
         start = time.time()
-
-        print(" >>>>> Starting epoch : ", epoch)
-
+        print(" > > > > > Starting epoch : ", epoch)
         try:
             maskbatch = next(maskitr)
             fullbatch = next(fullitr)
@@ -198,7 +216,7 @@ def train(maskedimages, fullimages, epochs):
             path = manager.save()
             print("Saved checkpoint for step {}: {}".format(int(checkpoint.step), path))
 
-        print ('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
+        print('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
 
         # Generate after the final epoch
         display.clear_output(wait=True)
@@ -225,4 +243,5 @@ def generate_and_save_images(model, epoch, test_input):
 
 if not os.path.exists('./results'):
     os.mkdir('./results')
-train(masked_dataset, full_dataset, EPOCHS)
+
+train(dataset_masked, dataset, EPOCHS)
