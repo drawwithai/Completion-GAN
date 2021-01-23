@@ -2,6 +2,8 @@
 import generator as gan_generator
 from generator import *
 import discriminator as gan_discriminator
+import masks
+from masks import *
 from discriminator import *
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -15,7 +17,6 @@ from tensorflow.keras import callbacks
 import time
 from IPython import display
 import tensorflow_datasets as tfds
-import cv2
 
 print(tf.__version__)
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
@@ -49,15 +50,8 @@ num_examples_to_generate = BATCH_SIZE
 # ---- Loading Dataset ----
 dataset = tfds.load('oneline45', split='train', as_supervised=False, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
 
-# ---- MASKING ----
-# ---- Preparing mask ----
-# Generating mask
-white_bg = np.ones([512, 512], dtype=np.uint8)
-white_bg.fill(255)
-mask = cv2.circle(white_bg, (260, 300), 225, (0,0,0), -1)
-mask = cv2.bitwise_and(white_bg, mask)
-mask = tf.Variable(mask, dtype='uint8')
-mask = tf.reshape(mask, [512, 512, 1])  # We need mask to have only 1 channel, not 3
+# ---- Get random mask ----
+mask = masks.generate_random_mask()
 
 # ---- Normalizing mask and every image of dataset ----
 def normalize_image(ele):
