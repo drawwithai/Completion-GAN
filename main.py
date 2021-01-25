@@ -50,30 +50,8 @@ BUFFER_SIZE = 60000
 BATCH_SIZE = 5
 num_examples_to_generate = BATCH_SIZE
 
-<<<<<<< HEAD
-# Batch and shuffle the data
-# masked_dataset = tfds.load('tensorflowdb', split='train', as_supervised=True, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
-
-
-def load_online45() :
-    ds = tfds.load('oneline45', split='train', as_supervised=False, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
-
-    def normalize_image(ele):
-        return (tf.cast(ele.get('image'), tf.float32) - 127.5) / 127.5, ele.get('label')
-
-    ds = ds.map(normalize_image)
-
-    for i in ds:
-        print(">>>>> masked_dataset normalized : ", i)
-        break
-
-    return ds
-
-def load_folder(path, masks_path=None) :
-=======
 # ---- Loading Dataset ----
 dataset = tfds.load('oneline45', split='train', as_supervised=False, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
->>>>>>> auto_mask
 
 # ---- Get random mask ----
 mask = masks.generate_random_mask()
@@ -86,47 +64,6 @@ def normalize_image(ele):
         return (tf.cast(ele, tf.float32) - 127.5) / 127.5
     
 
-<<<<<<< HEAD
-    def process_path(file_path):
-        label = get_label(file_path)
-        # load the raw data from the file as a string
-        img = tf.io.read_file(file_path)
-        img = decode_img(img)
-        img = (tf.cast(img, tf.float32) - 127.5) / 127.5
-        return img
-
-    if masks_path is None :
-
-        ds = tf.data.Dataset.list_files(path, shuffle=False)
-        ds = ds.map(process_path, num_parallel_calls=-1)
-        ds = ds.shuffle(BUFFER_SIZE)
-
-    else :
-
-        ds = tf.data.Dataset.list_files(path, shuffle=False)
-        ds = ds.map(process_path, num_parallel_calls=-1)
-        ds = ds.shuffle(BUFFER_SIZE)
-
-        mask = tf.data.Dataset.list_files(masks_path, shuffle=False)
-        mask = mask.map(process_path, num_parallel_calls=-1)
-        mask = mask.repeat(ds.cardinality()).shuffle(BUFFER_SIZE)
-
-        ds = tf.data.Dataset.zip((ds, mask))
-
-    ds = ds.batch(BATCH_SIZE).cache().prefetch(-1)
-
-    print(ds)
-    # for i in ds:
-    #     print(">>>>> dataset normalized : ", i)
-    #     break
-
-    return ds
-
-masked_dataset = load_folder('data/masked/*', 'data/masks/*')
-full_dataset = load_folder('data/full/*')
-
-seed = next(iter(masked_dataset))
-=======
 mask = normalize_image(mask)
 mask = tf.add(tf.multiply(mask, 0.5), 0.5)  # set max to 0 - 1 values instead of 0 - 255
 print(" >>>>> Normalized mask")
@@ -141,7 +78,6 @@ print(" >>>>> Masked images of dataset")
 # ---- Generating seed ----
 seed = next(iter(dataset_masked))
 print(">>>>> Seed : ", seed)
->>>>>>> auto_mask
 
 # ---- Tensorboard ----
 # logdir = 'logs'  # folder where to put logs
@@ -227,7 +163,7 @@ def train(maskedimages, fullimages, epochs):
 def generate_and_save_images(model, epoch, test_input):
     # Notice `training` is set to False.
     # This is so all layers run in inference mode (batchnorm).
-    predictions = model(test_input[0], training=False)
+    predictions = model(test_input, training=False)
 
     fig = plt.figure(figsize=(4,4))
 
