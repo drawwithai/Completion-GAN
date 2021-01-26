@@ -128,8 +128,6 @@ dataset_masked = batch_and_fetch_dataset(generateMaskedDataset(images))
 print(dataset)
 print(dataset_masked)
 
-seed = next(iter(dataset_masked))
-
 # ---- Get random mask ----
 
 # ---- Tensorboard ----
@@ -197,7 +195,7 @@ def train(maskedimages, fullimages, epochs):
         display.clear_output(wait=True)
         generate_and_save_images(generator,
                                  epoch + 1,
-                                 seed)
+                                 maskbatch)
 
         # Save the model every 15 epochs
         checkpoint.step.assign_add(1)
@@ -211,7 +209,7 @@ def train(maskedimages, fullimages, epochs):
         display.clear_output(wait=True)
         generate_and_save_images(generator,
                                  9999,
-                                 seed)
+                                 maskbatch)
 
 def generate_and_save_images(model, epoch, test_input):
     # Notice `training` is set to False.
