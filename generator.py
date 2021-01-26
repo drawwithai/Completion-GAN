@@ -51,14 +51,14 @@ def make_generator_model():
         
         return leaky_relu
 
-    layers = layer(16, 5, leaky_relu_1)
-    layers = layer(16, 5, layers)
-    layers = layer(16, 5, layers)
-    layers = layer(1, 5, layers)
+    output_layers = layer(16, 5, leaky_relu_1)
+    output_layers = layer(16, 5, output_layers)
+    output_layers = layer(16, 5, output_layers)
+    output_layers = layer(1, 5, output_layers)
 
     model = tf.keras.Model(
                 inputs=[masked_img_input, mask_input, noise_input],
-                outputs=[layers]
+                outputs=[output_layers]
             )
 
     return model

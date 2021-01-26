@@ -53,8 +53,7 @@ num_examples_to_generate = BATCH_SIZE
 # ---- Loading Dataset ----
 dataset = tfds.load('oneline45', split='train', as_supervised=False, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
 
-# ---- Get random mask ----
-mask = masks.generate_random_mask()
+# --- PREPARING DATA ----
 
 # ---- Normalizing mask and every image of dataset ----
 def normalize_image(ele):
@@ -62,22 +61,37 @@ def normalize_image(ele):
         return (tf.cast(ele.get('image'), tf.float32) - 127.5) / 127.5
     else:  # mask (or other directly loaded images) are not dict
         return (tf.cast(ele, tf.float32) - 127.5) / 127.5
-    
 
-mask = normalize_image(mask)
-mask = tf.add(tf.multiply(mask, 0.5), 0.5)  # set max to 0 - 1 values instead of 0 - 255
-print(" >>>>> Normalized mask")
-dataset = dataset.map(normalize_image)
-print(" >>>>> Normalized dataset")
+final_data = []  # contains [(masked_image, mask, random_noise)]
+
+for ele in dataset:
+    # Get random mask
+    mask = masks.generate_random_mask()
+    mask = normalize_image(mask)
+    mask = tf.add(tf.multiply(mask, 0.5), 0.5)  # set max to 0 - 1 values instead of 0 - 255
+    print(" >>>>> Normalized mask")
+
+    # Creating masked image
+    masked_image = ele * mask
+
+    # Generating noise image
+    random_noise = seed = tf.random.normal([512, 512, 1])
+
+    final_data.append((masked_image, mask, random_noise))
+
+# ########### OLD
+# dataset = dataset.map(normalize_image)
+# print(" >>>>> Normalized dataset")
 
 # ---- Creating masked dataset ----
-dataset_masked = dataset
-dataset_masked = dataset_masked.map(lambda ele: ele * mask)  # multiply image by mask to apply it
-print(" >>>>> Masked images of dataset")
+# dataset_masked = dataset
+# dataset_masked = dataset_masked.map(lambda ele: ele * mask)  # multiply image by mask to apply it
+# print(" >>>>> Masked images of dataset")
 
-# ---- Generating seed ----
-seed = next(iter(dataset_masked))
-print(">>>>> Seed : ", seed)
+# # ---- Generating seed ----
+# seed = next(iter(dataset_masked))
+# print(">>>>> Seed : ", seed)
+# ########### OLD
 
 # ---- Tensorboard ----
 # logdir = 'logs'  # folder where to put logs
