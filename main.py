@@ -21,6 +21,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Mask all images from input dir to output dir')
 parser.add_argument('batch', type=int, help='Batch Size')
+parser.add_argument('datadir', type=str, nargs='?')
 
 args = parser.parse_args()
 
@@ -57,9 +58,18 @@ BATCH_SIZE = args.batch
 num_examples_to_generate = BATCH_SIZE
 
 # ---- Loading Dataset ----
+def normalize_image(img):
+    if isinstance(img, dict):  # elements from dataset are dict
+        return (tf.cast(img.get('image'), tf.float32) - 127.5) / 127.5
+    else:  # mask (or other directly loaded images) are not dict
+        return (tf.cast(img, tf.float32) - 127.5) / 127.5
+
 def load_image45() :
 
-    return tfds.load('oneline45', split='train', as_supervised=False, batch_size=None, shuffle_files=True, download=False)
+    ds = tfds.load('oneline45', split='train', as_supervised=False, batch_size=None, shuffle_files=True, download=False)
+    ds = ds.map(normalize_image, num_parallel_calls=-1)
+
+    return ds
 
 def load_images(path) :
 
@@ -105,7 +115,12 @@ def batch_and_fetch_dataset(ds) :
 
     return ds.batch(BATCH_SIZE).cache().prefetch(-1)
 
-images = load_images('data/full/*')
+if args.datadir is not None :
+    images = load_images(args.datadir + '*')
+    print(" >>>>>> Load custom dataset :", args.datadir)
+else :
+    images = load_image45()
+    print(" >>>>>> Load default dataset : oneline45")
 
 dataset = batch_and_fetch_dataset(images)
 dataset_masked = batch_and_fetch_dataset(generateMaskedDataset(images))
