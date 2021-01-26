@@ -51,37 +51,69 @@ BATCH_SIZE = 5
 num_examples_to_generate = BATCH_SIZE
 
 # ---- Loading Dataset ----
-dataset = tfds.load('oneline45', split='train', as_supervised=False, batch_size=BATCH_SIZE, shuffle_files=True, download=False)
+def load_image45() :
+
+    return tfds.load('oneline45', split='train', as_supervised=False, batch_size=None, shuffle_files=True, download=False)
+
+def load_images(path) :
+
+    def decode_img(img):
+        # convert the compressed string to a 3D uint8 tensor
+        img = tf.image.decode_jpeg(img, channels=1)
+        # resize the image to the desired size
+        return tf.image.resize(img, [512, 512])
+
+    def process_path(file_path):
+        # load the raw data from the file as a string
+        img = tf.io.read_file(file_path)
+        img = decode_img(img)
+        img = (tf.cast(img, tf.float32) - 127.5) / 127.5
+        return img
+
+    ds = tf.data.Dataset.list_files(path, shuffle=False)
+    ds = ds.map(process_path, num_parallel_calls=-1)
+    ds = ds.shuffle(BUFFER_SIZE)
+
+    return ds
+
+def generateMaskedDataset(images) :
+
+    N = tf.data.experimental.cardinality(images)
+
+    masks = tf.data.Dataset.from_tensors(generate_random_mask())
+    masks = masks.repeat(N // 8 + int((N % 8) != 0))
+
+    noise = tf.data.Dataset.from_tensors(tf.random.normal([512, 512, 1]))
+    noise = noise.repeat(N)
+
+    maskeds = images
+
+    def apply_mask(img, mask, noise) :
+        return (img * mask, mask, noise)
+
+    ds = tf.data.Dataset.zip((maskeds, masks, noise)).map(apply_mask, num_parallel_calls=-1)
+
+    return ds
+
+def batch_and_fetch_dataset(ds) :
+
+    return ds.batch(BATCH_SIZE).cache().prefetch(-1)
+
+images = load_images('data/full/*')
+
+dataset = batch_and_fetch_dataset(images)
+dataset_masked = batch_and_fetch_dataset(generateMaskedDataset(images))
+
+print(dataset)
+print(dataset_masked)
+
+seed = next(iter(dataset_masked))
 
 # ---- Get random mask ----
-mask = masks.generate_random_mask()
-
-# ---- Normalizing mask and every image of dataset ----
-def normalize_image(ele):
-    if isinstance(ele, dict):  # elements from dataset are dict
-        return (tf.cast(ele.get('image'), tf.float32) - 127.5) / 127.5
-    else:  # mask (or other directly loaded images) are not dict
-        return (tf.cast(ele, tf.float32) - 127.5) / 127.5
-    
-
-mask = normalize_image(mask)
-mask = tf.add(tf.multiply(mask, 0.5), 0.5)  # set max to 0 - 1 values instead of 0 - 255
-print(" >>>>> Normalized mask")
-dataset = dataset.map(normalize_image)
-print(" >>>>> Normalized dataset")
-
-# ---- Creating masked dataset ----
-dataset_masked = dataset
-dataset_masked = dataset_masked.map(lambda ele: ele * mask)  # multiply image by mask to apply it
-print(" >>>>> Masked images of dataset")
-
-# ---- Generating seed ----
-seed = next(iter(dataset_masked))
-print(">>>>> Seed : ", seed)
 
 # ---- Tensorboard ----
-# logdir = 'logs'  # folder where to put logs
-# writer = tf.summary.create_file_writer(logdir)
+logdir = 'logs'  # folder where to put logs
+writer = tf.summary.create_file_writer(logdir)
 
 generator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
 discriminator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)

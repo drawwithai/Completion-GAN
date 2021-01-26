@@ -31,34 +31,35 @@ def make_generator_model():
 
     # ---- Defining inputs ----
     # Masked image
-    masked_img_input = tf.keras.Input(shape=(512, 512, 1), name="Masked image")
+    masked_img_input = tf.keras.Input(shape=(512, 512, 1), name="Maskedimage")
     # Mask image
-    mask_input = tf.keras.Input(shape=(512, 512, 1), name="Masked image")
+    mask_input = tf.keras.Input(shape=(512, 512, 1), name="Maskimage")
     # Random seed
-    noise_input = tf.keras.Input(shape=(512, 512, 1), name="Random noise")
+    noise_input = tf.keras.Input(shape=(512, 512, 1), name="Noise")
 
     # ---- Merge all inputs in one ----
-    inputs = layers.Concatenate([masked_img_input, mask_input, noise_input])
+    inputs = layers.Concatenate(axis=3)([masked_img_input, mask_input, noise_input])
 
     # ---- Defining layers ----
-    conv2d_1 = layers.Conv2D(8, (5, 5), strides=(3, 3), padding='same', input_shape=(512*3, 512*3, 1))(inputs)
+    conv2d_1 = layers.Conv2D(8, (5, 5), strides=(1, 1), padding='same', input_shape=(512, 512, 3))(inputs)
     batch_norm = layers.BatchNormalization()(conv2d_1)
     leaky_relu_1 = layers.LeakyReLU()(batch_norm)
 
     def layer(depth, conv, prev_layer):
-        conv2d = layers.Conv2D(depth, (conv, conv), strides=(3, 3), padding='same')(prev_layer)
-        leaky_relu = layers.LeakyReLU()(conv2d)
-        
-        return leaky_relu
+        tmp = layers.Conv2D(depth, (conv, conv), strides=(1, 1), padding='same')(prev_layer)
+        tmp = layers.BatchNormalization()(tmp)
+        return layers.LeakyReLU()(tmp)
 
-    layers = layer(16, 5, leaky_relu_1)
-    layers = layer(16, 5, layers)
-    layers = layer(16, 5, layers)
-    layers = layer(1, 5, layers)
+    tmp = layer(16, 5, leaky_relu_1)
+    tmp = layer(16, 5, tmp)
+    tmp = layer(16, 5, tmp)
+    tmp = layer(16, 5, tmp)
+
+    tmp = layers.Conv2D(1, (7, 7), strides=(1, 1), padding='same', use_bias=False, activation='tanh')(tmp)
 
     model = tf.keras.Model(
                 inputs=[masked_img_input, mask_input, noise_input],
-                outputs=[layers]
+                outputs=[tmp]
             )
 
     return model
