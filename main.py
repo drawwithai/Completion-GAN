@@ -17,6 +17,12 @@ from tensorflow.keras import callbacks
 import time
 from IPython import display
 import tensorflow_datasets as tfds
+import argparse
+
+parser = argparse.ArgumentParser(description='Mask all images from input dir to output dir')
+parser.add_argument('batch', type=int, help='Batch Size')
+
+args = parser.parse_args()
 
 print(tf.__version__)
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
@@ -47,7 +53,7 @@ manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
 # ---- Training loops settings ----
 EPOCHS = 200
 BUFFER_SIZE = 60000
-BATCH_SIZE = 5
+BATCH_SIZE = args.batch
 num_examples_to_generate = BATCH_SIZE
 
 # ---- Loading Dataset ----
@@ -126,7 +132,7 @@ def train_step(masked, full):
         real_output = discriminator(full, training=True)
         fake_output = discriminator(generated_images, training=True)
 
-        gen_loss = gan_generator.generator_loss(fake_output)
+        gen_loss = gan_generator.generator_loss(fake_output, masked[0], generated_images, masked[1])
         disc_loss = gan_discriminator.discriminator_loss(real_output, fake_output)
 
     gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)

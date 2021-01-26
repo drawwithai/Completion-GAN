@@ -96,7 +96,10 @@ def make_generator_model():
 
 
 # ---- Generator loss function ----
-def generator_loss(fake_output):
+def generator_loss(fake_output, input, output, mask):
     cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
-    return cross_entropy(tf.ones_like(fake_output), fake_output)
+    context_loss = cross_entropy(input * mask, output * mask)
+    percept_loss = cross_entropy(tf.ones_like(fake_output), fake_output)
+
+    return context_loss + 0.1 * percept_loss
