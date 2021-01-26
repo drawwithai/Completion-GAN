@@ -45,15 +45,24 @@ def make_generator_model():
     batch_norm = layers.BatchNormalization()(conv2d_1)
     leaky_relu_1 = layers.LeakyReLU()(batch_norm)
 
-    def layer(depth, conv, prev_layer):
-        tmp = layers.Conv2D(depth, (conv, conv), strides=(1, 1), padding='same')(prev_layer)
+    def uplayer(depth, conv, fac, prev_layer):
+        tmp = layers.Conv2DTranspose(depth, (conv, conv), strides=(fac, fac), padding='same')(prev_layer)
         tmp = layers.BatchNormalization()(tmp)
         return layers.LeakyReLU()(tmp)
 
-    tmp = layer(16, 5, leaky_relu_1)
-    tmp = layer(16, 5, tmp)
-    tmp = layer(16, 5, tmp)
-    tmp = layer(16, 5, tmp)
+    def downlayer(depth, conv, fac, prev_layer):
+        tmp = layers.Conv2D(depth, (conv, conv), strides=(fac, fac), padding='same')(prev_layer)
+        tmp = layers.BatchNormalization()(tmp)
+        return layers.LeakyReLU()(tmp)
+
+
+    tmp = downlayer(16, 5, 2, leaky_relu_1)
+    tmp = downlayer(32, 5, 2, tmp)
+    tmp = downlayer(64, 9, 1, tmp)
+    tmp = uplayer(64, 9, 2, tmp)
+    tmp = uplayer(32, 7, 2, tmp)
+    tmp = uplayer(16, 5, 1, tmp)
+    tmp = uplayer(8, 5, 1, tmp)
 
     tmp = layers.Conv2D(1, (7, 7), strides=(1, 1), padding='same', use_bias=False, activation='tanh')(tmp)
 
