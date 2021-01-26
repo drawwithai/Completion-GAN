@@ -95,9 +95,10 @@ def load_images(path) :
 def generateMaskedDataset(images) :
 
     N = tf.data.experimental.cardinality(images)
+    NBMASK = 16
 
-    masks = tf.data.Dataset.from_tensors(generate_random_mask())
-    masks = masks.repeat(N // 8 + int((N % 8) != 0))
+    masks = tf.data.Dataset.from_tensor_slices([generate_random_mask() for _ in range(NBMASK)])
+    masks = masks.repeat(N // NBMASK + int((N % NBMASK) != 0))
 
     noise = tf.data.Dataset.from_tensors(tf.random.normal([512, 512, 1]))
     noise = noise.repeat(N)
