@@ -18,6 +18,7 @@ import time
 from IPython import display
 import tensorflow_datasets as tfds
 import argparse
+import random
 
 parser = argparse.ArgumentParser(description='Mask all images from input dir to output dir')
 parser.add_argument('batch', type=int, help='Batch Size')
@@ -92,25 +93,25 @@ def load_images(path) :
 
     return ds
 
-def generateMaskedDataset(images) :
+# def generateMaskedDataset(images):
 
-    N = tf.data.experimental.cardinality(images)
-    NBMASK = 16
+    # N = tf.data.experimental.cardinality(images)
+    # NBMASK = 16
 
-    masks = tf.data.Dataset.from_tensor_slices([generate_random_mask() for _ in range(NBMASK)])
-    masks = masks.repeat(N // NBMASK + int((N % NBMASK) != 0))
+    # masks = tf.data.Dataset.from_tensor_slices([generate_random_mask() for _ in range(NBMASK)])
+    # masks = masks.repeat(N // NBMASK + int((N % NBMASK) != 0))
 
-    noise = tf.data.Dataset.from_tensors(tf.random.normal([512, 512, 1]))
-    noise = noise.repeat(N)
+    # noise = tf.data.Dataset.from_tensors(tf.random.normal([512, 512, 1]))
+    # noise = noise.repeat(N)
 
-    maskeds = images
+    # maskeds = images
 
-    def apply_mask(img, mask, noise) :
-        return (img * mask, mask, noise)
+    # def apply_mask(img, mask, noise) :
+        # return (img * mask, mask, noise)
 
-    ds = tf.data.Dataset.zip((maskeds, masks, noise)).map(apply_mask, num_parallel_calls=-1)
+    # ds = tf.data.Dataset.zip((maskeds, masks, noise)).map(apply_mask, num_parallel_calls=-1)
 
-    return ds
+    # return ds
 
 def batch_and_fetch_dataset(ds) :
 
@@ -124,10 +125,8 @@ else :
     print(" >>>>>> Load default dataset : oneline45")
 
 dataset = batch_and_fetch_dataset(images)
-dataset_masked = batch_and_fetch_dataset(generateMaskedDataset(images))
 
-print(dataset)
-print(dataset_masked)
+print(" >> dataset : ", dataset)
 
 # ---- Get random mask ----
 
@@ -138,8 +137,38 @@ writer = tf.summary.create_file_writer(logdir)
 generator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
 discriminator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
 
+# ---- generates set of masks ----
+maskarray = [generate_random_mask() for _ in range(BATCH_SIZE)]
+maskarray = tf.stack(maskarray)
+
 @tf.function
-def train_step(masked, full):
+def train_step(images, masks):
+    print(" IMAGES :    ", images)
+
+    def process_image(img, masks):
+        # Randomly transform image
+        img = tf.image.random_flip_left_right(img)
+        img = tf.image.random_flip_up_down(img)
+        rand_nb = random.randint(0, 3)
+        for i in range(rand_nb):
+            img = tf.image.rot90(img)
+
+        # Generate and apply mask
+        img_masked = img * masks
+
+        # Generate random noise
+        noise = tf.random.normal([BATCH_SIZE, 512, 512, 1])
+
+        return [img, (img_masked, maskarray, noise)]
+
+
+    # Process all images and put them in 2 tables
+    # images = images.map(process_image)
+    images = process_image(images, masks)
+    print(" >> images processing done << : ", images)
+    full = images[0]
+    masked = images[1]
+
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
         generated_images = generator(masked, training=True)
 
@@ -158,7 +187,10 @@ def train_step(masked, full):
     generator_metric(gen_loss)
     discriminator_metric(disc_loss)
 
-def train(maskedimages, fullimages, epochs):
+    return images[1]
+
+
+def train(fullimages, masks, epochs):
 
     # Restore checkpoint if found
     checkpoint.restore(manager.latest_checkpoint)
@@ -167,24 +199,20 @@ def train(maskedimages, fullimages, epochs):
     else:
         print(" >>>>> Initializing from scratch.")
 
-    maskitr = iter(maskedimages)
     fullitr = iter(fullimages)
 
     for epoch in range(epochs):
         start = time.time()
-        print(" > > > > > Starting epoch : ", epoch)
+        print(" >> >  > Starting epoch : ", epoch, " << <  < ")
         try:
-            maskbatch = next(maskitr)
             fullbatch = next(fullitr)
         except StopIteration:
-            maskitr = iter(maskedimages)
             fullitr = iter(fullimages)
-            maskbatch = next(maskitr)
             fullbatch = next(fullitr)
 
-        train_step(maskbatch, fullbatch)
+        maskbatch = train_step(fullbatch, masks)
 
-        template = 'Epoch {}, Generator Loss: {}, Discriminator Loss: {}'
+        template = '--> Epoch {}, Generator Loss: {}, Discriminator Loss: {}'
         print (template.format(epoch+1,
             generator_metric.result(),
             discriminator_metric.result()))
@@ -208,9 +236,9 @@ def train(maskedimages, fullimages, epochs):
 
         # Generate after the final epoch
         display.clear_output(wait=True)
-        generate_and_save_images(generator,
-                                 9999,
-                                 maskbatch)
+        # generate_and_save_images(generator,
+                                 # 9999,
+                                 # maskbatch)
 
 def generate_and_save_images(model, epoch, test_input):
     # Notice `training` is set to False.
@@ -232,4 +260,4 @@ def generate_and_save_images(model, epoch, test_input):
 if not os.path.exists('./results'):
     os.mkdir('./results')
 
-train(dataset_masked, dataset, EPOCHS)
+train(dataset, maskarray, EPOCHS)
