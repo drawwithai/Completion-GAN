@@ -1,10 +1,8 @@
 #!/usr/bin/python3.7
-import generator as gan_generator
-from generator import *
-import discriminator as gan_discriminator
-import masks
 from masks import *
+from generator import *
 from discriminator import *
+from dataset_utils import *
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from matplotlib.image import imread
@@ -19,16 +17,20 @@ from IPython import display
 import tensorflow_datasets as tfds
 import argparse
 import random
+import os
 
+# Disable GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
+# ---- Manage launch arguments ----
 parser = argparse.ArgumentParser(description='Mask all images from input dir to output dir')
 parser.add_argument('batch', type=int, help='Batch Size')
 parser.add_argument('datadir', type=str, nargs='?')
-
 args = parser.parse_args()
 
+# ---- Initialization ----
 print(tf.__version__)
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
-
 tf.config.threading.set_inter_op_parallelism_threads(16)
 
 # ---- Creating optimizers ----
@@ -36,9 +38,10 @@ generator_optimizer = tf.keras.optimizers.Adam(1e-4)
 discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
 
 # ---- Creating generator and discriminator ----
-generator = gan_generator.make_generator_model()
-discriminator = gan_discriminator.make_discriminator_model()
+generator = make_generator_model()
+discriminator = make_discriminator_model()
 
+# Save graphs of models as png
 tf.keras.utils.plot_model(generator, "generator.png", show_shapes=True)
 tf.keras.utils.plot_model(discriminator, "discriminator.png", show_shapes=True)
 
@@ -46,10 +49,10 @@ tf.keras.utils.plot_model(discriminator, "discriminator.png", show_shapes=True)
 checkpoint_dir = './training_checkpoints'
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
 checkpoint = tf.train.Checkpoint(step=tf.Variable(1),
-        generator_optimizer=generator_optimizer,
-        discriminator_optimizer=discriminator_optimizer,
-        generator=generator,
-        discriminator=discriminator)
+            generator_optimizer=generator_optimizer,
+            discriminator_optimizer=discriminator_optimizer,
+            generator=generator,
+            discriminator=discriminator)
 manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
 
 # ---- Training loops settings ----
@@ -59,76 +62,19 @@ BATCH_SIZE = args.batch
 num_examples_to_generate = BATCH_SIZE
 
 # ---- Loading Dataset ----
-def normalize_image(img):
-    if isinstance(img, dict):  # elements from dataset are dict
-        return (tf.cast(img.get('image'), tf.float32) - 127.5) / 127.5
-    else:  # mask (or other directly loaded images) are not dict
-        return (tf.cast(img, tf.float32) - 127.5) / 127.5
-
-def load_image45() :
-
-    ds = tfds.load('oneline45', split='train', as_supervised=False, batch_size=None, shuffle_files=True, download=False)
-    ds = ds.map(normalize_image, num_parallel_calls=-1)
-
-    return ds
-
-def load_images(path) :
-
-    def decode_img(img):
-        # convert the compressed string to a 3D uint8 tensor
-        img = tf.image.decode_jpeg(img, channels=1)
-        # resize the image to the desired size
-        return tf.image.resize(img, [512, 512])
-
-    def process_path(file_path):
-        # load the raw data from the file as a string
-        img = tf.io.read_file(file_path)
-        img = decode_img(img)
-        img = (tf.cast(img, tf.float32) - 127.5) / 127.5
-        return img
-
-    ds = tf.data.Dataset.list_files(path, shuffle=False)
-    ds = ds.map(process_path, num_parallel_calls=-1)
-    ds = ds.shuffle(BUFFER_SIZE)
-
-    return ds
-
-# def generateMaskedDataset(images):
-
-    # N = tf.data.experimental.cardinality(images)
-    # NBMASK = 16
-
-    # masks = tf.data.Dataset.from_tensor_slices([generate_random_mask() for _ in range(NBMASK)])
-    # masks = masks.repeat(N // NBMASK + int((N % NBMASK) != 0))
-
-    # noise = tf.data.Dataset.from_tensors(tf.random.normal([512, 512, 1]))
-    # noise = noise.repeat(N)
-
-    # maskeds = images
-
-    # def apply_mask(img, mask, noise) :
-        # return (img * mask, mask, noise)
-
-    # ds = tf.data.Dataset.zip((maskeds, masks, noise)).map(apply_mask, num_parallel_calls=-1)
-
-    # return ds
-
-def batch_and_fetch_dataset(ds) :
-
-    return ds.batch(BATCH_SIZE).cache().prefetch(-1)
-
+# Loads local images if specified,
+# otherwise loads oneline45 dataset (deprecated)
 if args.datadir is not None :
-    images = load_images(args.datadir + '*')
+    images = load_images(args.datadir + '*', BUFFER_SIZE)
     print(" >>>>>> Load custom dataset :", args.datadir)
 else :
     images = load_image45()
     print(" >>>>>> Load default dataset : oneline45")
 
-dataset = batch_and_fetch_dataset(images)
+dataset = batch_and_fetch_dataset(images, BATCH_SIZE
+        )
 
 print(" >> dataset : ", dataset)
-
-# ---- Get random mask ----
 
 # ---- Tensorboard ----
 logdir = 'logs'  # folder where to put logs
@@ -137,14 +83,15 @@ writer = tf.summary.create_file_writer(logdir)
 generator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
 discriminator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
 
+# TODO: move it to train_step()
 # ---- generates set of masks ----
 maskarray = [generate_random_mask() for _ in range(BATCH_SIZE)]
 maskarray = tf.stack(maskarray)
 
 @tf.function
 def train_step(images, masks):
-    print(" IMAGES :    ", images)
 
+    # --- Images processing ----
     def process_image(img, masks):
         # Randomly transform image
         img = tf.image.random_flip_left_right(img)
@@ -163,20 +110,20 @@ def train_step(images, masks):
 
 
     # Process all images and put them in 2 tables
-    # images = images.map(process_image)
     images = process_image(images, masks)
-    print(" >> images processing done << : ", images)
     full = images[0]
     masked = images[1]
+    print(" >> images processing done << : ", images)
 
+    # ---- Graidient descent ----
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
         generated_images = generator(masked, training=True)
 
         real_output = discriminator(full, training=True)
         fake_output = discriminator(generated_images, training=True)
 
-        gen_loss = gan_generator.generator_loss(fake_output, masked[0], generated_images, masked[1])
-        disc_loss = gan_discriminator.discriminator_loss(real_output, fake_output)
+        gen_loss = generator_loss(fake_output, masked[0], generated_images, masked[1])
+        disc_loss = discriminator_loss(real_output, fake_output)
 
     gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
     gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
@@ -190,9 +137,10 @@ def train_step(images, masks):
     return images[1]
 
 
+# ---- TRAIN THE MODELS ----
 def train(fullimages, masks, epochs):
 
-    # Restore checkpoint if found
+    # ---- Checkpoint restoration ----
     checkpoint.restore(manager.latest_checkpoint)
     if manager.latest_checkpoint:
         print(" >>>>> Restored from {}".format(manager.latest_checkpoint))
@@ -210,12 +158,15 @@ def train(fullimages, masks, epochs):
             fullitr = iter(fullimages)
             fullbatch = next(fullitr)
 
+        # ---- Actual training ----
         maskbatch = train_step(fullbatch, masks)
 
         template = '--> Epoch {}, Generator Loss: {}, Discriminator Loss: {}'
-        print (template.format(epoch+1,
-            generator_metric.result(),
-            discriminator_metric.result()))
+        print(template.format(
+                epoch+1,
+                generator_metric.result(),
+                discriminator_metric.result())
+        )
 
         generator_metric.reset_states()
         discriminator_metric.reset_states()
@@ -234,15 +185,16 @@ def train(fullimages, masks, epochs):
 
         print('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
 
-        # Generate after the final epoch
+        # ---- Generate after the final epoch ----
         display.clear_output(wait=True)
-        # generate_and_save_images(generator,
-                                 # 9999,
-                                 # maskbatch)
+        # generate_and_save_images(
+            # generator,
+            # 9999,
+            # maskbatch)
 
+
+# ---- Generate images and save them as png ----
 def generate_and_save_images(model, epoch, test_input):
-    # Notice `training` is set to False.
-    # This is so all layers run in inference mode (batchnorm).
     predictions = model(test_input, training=False)
 
     fig = plt.figure(figsize=(4,4))
@@ -257,7 +209,9 @@ def generate_and_save_images(model, epoch, test_input):
     plt.close()
     #plt.show()
 
+# Make sure that the results folder exists
 if not os.path.exists('./results'):
     os.mkdir('./results')
 
+# Call the training
 train(dataset, maskarray, EPOCHS)
