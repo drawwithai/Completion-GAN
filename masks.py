@@ -6,16 +6,16 @@ import numpy as np
 
 def generate_random_mask():
 
-    HEIGHT = 512
-    WIDTH = 512
-    MARGIN = 100  # margin on border on canvas
+    HEIGHT = 256
+    WIDTH = 256
+    MARGIN = 50  # margin on border on canvas
 
     # ---- Creating white background ----
     white_bg = np.ones([WIDTH, HEIGHT], dtype=np.uint8)
     white_bg.fill(255)
 
     def random_circle_mask():
-        radius = np.random.randint(50, 150)
+        radius = np.random.randint(50, 150 / 2)
         posX = np.random.randint(radius + MARGIN, WIDTH - radius)
         posY = np.random.randint(radius + MARGIN, HEIGHT - radius)
         mask = cv2.circle(white_bg, (posX, posY), radius, (0, 0, 0), -1)
@@ -48,11 +48,12 @@ def generate_random_mask():
     # ---- Pick a random mask function in list ----
     mask_list = [
             random_circle_mask,
-            random_rectangle_mask]
+            random_rectangle_mask
+    ]
     mask = random.choice(mask_list)()
 
     mask = tf.Variable(mask, dtype='uint8')
-    mask = tf.reshape(mask, [512, 512, 1])  # We need mask to have only 1 channel, not 3
+    mask = tf.reshape(mask, [256, 256, 1])  # We need mask to have only 1 channel, not 3
     mask = tf.cast(mask, tf.float32) / 255
 
     return mask

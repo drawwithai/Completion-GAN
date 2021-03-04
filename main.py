@@ -72,10 +72,9 @@ else :
     images = load_image45()
     print(" >>>>>> Load default dataset : oneline45")
 
-dataset = batch_and_fetch_dataset(images, BATCH_SIZE
-        )
+dataset = batch_and_fetch_dataset(images, BATCH_SIZE)
 
-print(" >> dataset : ", dataset)
+# print(" >> dataset : ", dataset)
 
 # ---- Tensorboard ----
 logdir = 'logs'  # folder where to put logs
@@ -114,9 +113,9 @@ def train_step(images, masks):
     images = process_image(images, masks)
     full = images[0]
     masked = images[1]
-    print(" >> images processing done << : ", images)
+    # print(" >> images processing done << : ", images)
 
-    # ---- Graidient descent ----
+    # ---- Gradient descent ----
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
         generated_images = generator(masked, training=True)
 
