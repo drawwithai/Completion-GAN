@@ -3,9 +3,13 @@ from tensorflow.keras import layers
 
 # ---- Discriminator model ----
 def make_discriminator_model():
+
+    # SETTINGS :
+    IMGRES = 256
+
     model = tf.keras.Sequential()
-    model.add(layers.Conv2D(8, (5, 5), strides=(2, 2), padding='same', input_shape=(512, 512, 1)))
-    assert model.output_shape == (None, 256, 256, 8)
+    model.add(layers.Conv2D(8, (5, 5), strides=(2, 2), padding='same', input_shape=(IMGRES, IMGRES, 1)))
+    assert model.output_shape == (None, IMGRES / 2, IMGRES / 2, 8)
     model.add(layers.LeakyReLU())
     model.add(layers.Dropout(0.3))
 
@@ -16,12 +20,11 @@ def make_discriminator_model():
         model.add(layers.LeakyReLU())
         model.add(layers.Dropout(0.3))
 
-    layer(16, 5, 2) # 128x128
-    layer(32, 5, 2) # 64x64
-    layer(64, 5, 2) # 32x32
-    layer(128, 5, 2) # 16x16
-    layer(256, 5, 2) # 8x8
-    layer(512, 5, 2) # 4x4
+    layer(16, 5, 2)
+    layer(32, 5, 2)
+    layer(64, 5, 2)
+    layer(128, 5, 2)
+    layer(256, 5, 2)
 
     model.add(layers.Flatten())
     model.add(layers.Dense(1))

@@ -24,7 +24,7 @@ def load_images(path, buffer_size):
         # convert the compressed string to a 3D uint8 tensor
         img = tf.image.decode_jpeg(img, channels=1)
         # resize the image to the desired size
-        return tf.image.resize(img, [512, 512])
+        return tf.image.resize(img, [256, 256])
 
     def process_path(file_path):
         # load the raw data from the file as a string

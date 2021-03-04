@@ -60,6 +60,7 @@ EPOCHS = 200
 BUFFER_SIZE = 60000
 BATCH_SIZE = args.batch
 num_examples_to_generate = BATCH_SIZE
+IMGRES = 256
 
 # ---- Loading Dataset ----
 # Loads local images if specified,
@@ -104,7 +105,7 @@ def train_step(images, masks):
         img_masked = img * masks
 
         # Generate random noise
-        noise = tf.random.normal([BATCH_SIZE, 512, 512, 1])
+        noise = tf.random.normal([BATCH_SIZE, 256, 256, 1])
 
         return [img, (img_masked, maskarray, noise)]
 

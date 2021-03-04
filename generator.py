@@ -5,19 +5,22 @@ from tensorflow.keras import layers
 
 def make_generator_model():
 
+    # SETTINGS :
+    IMGRES = 256
+
     # ---- Defining inputs ----
     # Masked image
-    masked_img_input = tf.keras.Input(shape=(512, 512, 1), name="Maskedimage")
+    masked_img_input = tf.keras.Input(shape=(IMGRES, IMGRES, 1), name="Maskedimage")
     # Mask image
-    mask_input = tf.keras.Input(shape=(512, 512, 1), name="Maskimage")
+    mask_input = tf.keras.Input(shape=(IMGRES, IMGRES, 1), name="Maskimage")
     # Random seed
-    noise_input = tf.keras.Input(shape=(512, 512, 1), name="Noise")
+    noise_input = tf.keras.Input(shape=(IMGRES, IMGRES, 1), name="Noise")
 
     # ---- Merge all inputs in one ----
     inputs = layers.Concatenate(axis=3)([masked_img_input, mask_input, noise_input])
 
     # ---- Defining layers ----
-    conv2d_1 = layers.Conv2D(3, (5, 5), strides=(1, 1), padding='same', input_shape=(512, 512, 3))(inputs)
+    conv2d_1 = layers.Conv2D(3, (5, 5), strides=(1, 1), padding='same', input_shape=(IMGRES, IMGRES, 3))(inputs)
     batch_norm = layers.BatchNormalization()(conv2d_1)
     leaky_relu_1 = layers.LeakyReLU()(batch_norm)
 
@@ -33,13 +36,11 @@ def make_generator_model():
 
     tmp = downlayer(64, 3, 2, leaky_relu_1)
     tmp = downlayer(128, 3, 2, tmp)
-    tmp = downlayer(256, 3, 2, tmp)
 
-    tmp = downlayer(256, 3, 1, tmp)
-    tmp = downlayer(256, 3, 1, tmp)
-    tmp = downlayer(256, 3, 1, tmp)
+    tmp = downlayer(128, 3, 1, tmp)
+    tmp = downlayer(128, 3, 1, tmp)
+    tmp = downlayer(128, 3, 1, tmp)
 
-    tmp = uplayer(128, 3, 2, tmp)
     tmp = uplayer(64, 3, 2, tmp)
     tmp = uplayer(32, 3, 2, tmp)
     tmp = uplayer(8, 5, 1, tmp)
