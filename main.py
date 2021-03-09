@@ -151,7 +151,7 @@ def train(fullimages, masks, epochs):
 
     for epoch in range(epochs):
         start = time.time()
-        print(" >> >  > Starting epoch : ", epoch, " << <  < ")
+        print(" >> >  > Starting epoch : ", epoch + 1, " << <  < ")
         try:
             fullbatch = next(fullitr)
         except StopIteration:
@@ -197,17 +197,18 @@ def train(fullimages, masks, epochs):
 def generate_and_save_images(model, epoch, test_input):
     predictions = model(test_input, training=False)
 
-    fig = plt.figure(figsize=(4,4))
+    fig = plt.figure(figsize=(2,2))
 
     for i in range(predictions.shape[0]):
-        if 16 <= i : break
-        plt.subplot(4, 4, i+1)
+        if 4 <= i : break
+        plt.subplot(2, 2, i+1)
         plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gray')
         plt.axis('off')
 
     plt.savefig('./results/image_at_epoch_{:04d}.png'.format(epoch))
     plt.close()
     #plt.show()
+
 
 # Make sure that the results folder exists
 if not os.path.exists('./results'):

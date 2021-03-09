@@ -35,7 +35,7 @@ def load_images(path, buffer_size):
 
     ds = tf.data.Dataset.list_files(path, shuffle=False)
     ds = ds.map(process_path, num_parallel_calls=-1)
-    ds = ds.shuffle(buffer_size)
+    ds = ds.shuffle(buffer_size).repeat()
 
     return ds
 
