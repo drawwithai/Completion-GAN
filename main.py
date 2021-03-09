@@ -106,7 +106,7 @@ def train_step(images, masks):
         # Generate random noise
         noise = tf.random.normal([BATCH_SIZE, 256, 256, 1])
 
-        return [img, (img_masked, maskarray, noise)]
+        return [img, (img_masked, masks, noise)]
 
 
     # Process all images and put them in 2 tables
@@ -197,7 +197,7 @@ def train(fullimages, masks, epochs):
 def generate_and_save_images(model, epoch, test_input):
     predictions = model(test_input, training=False)
 
-    fig = plt.figure(figsize=(2,2))
+    fig = plt.figure(figsize=(2,2), dpi=300)
 
     for i in range(predictions.shape[0]):
         if 4 <= i : break

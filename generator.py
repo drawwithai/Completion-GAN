@@ -59,7 +59,15 @@ def make_generator_model():
 def generator_loss(fake_output, input, output, mask):
     cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
+    qty_img = tf.reduce_sum(input * mask)  # Sum of pixels in masked area
+    qty_mask = tf.reduce_sum(mask)
+    fillrate = qty_img / qty_mask
+
+    k = 4
+    a = 2
+    fillrate = k * (fillrate - 0.5) ** a
+
     context_loss = cross_entropy(input * mask, output * mask)
     percept_loss = cross_entropy(tf.ones_like(fake_output), fake_output)
 
-    return context_loss + 0.1 * percept_loss
+    return context_loss + 0.1 * percept_loss + fillrate
