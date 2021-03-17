@@ -20,11 +20,13 @@ def make_discriminator_model():
         model.add(layers.LeakyReLU())
         model.add(layers.Dropout(0.3))
 
-    layer(16, 5, 2)
-    layer(32, 5, 2)
-    layer(64, 5, 2)
-    layer(128, 5, 2)
-    layer(256, 5, 2)
+    x = 4
+    
+    layer(16 * x, 5, 2)
+    layer(32 * x, 5, 2)
+    layer(64 * x, 5, 2)
+    layer(128 * x, 5, 2)
+    layer(256 * x, 5, 2)
 
     model.add(layers.Flatten())
     model.add(layers.Dense(1))
@@ -40,4 +42,4 @@ def discriminator_loss(real_output, fake_output):
     fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output)
     total_loss = real_loss + fake_loss
 
-    return total_loss
+    return total_loss, real_loss, fake_loss

@@ -123,7 +123,7 @@ def train_step(images, masks):
         fake_output = discriminator(generated_images, training=True)
 
         gen_loss = generator_loss(fake_output, masked[0], generated_images, masked[1])
-        disc_loss = discriminator_loss(real_output, fake_output)
+        disc_loss, real_loss, fake_loss = discriminator_loss(real_output, fake_output)
 
     gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
     gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
@@ -134,7 +134,7 @@ def train_step(images, masks):
     generator_metric(gen_loss)
     discriminator_metric(disc_loss)
 
-    return images[1]
+    return images[1], fake_output, real_output, real_loss, fake_loss
 
 
 # ---- TRAIN THE MODELS ----
@@ -159,7 +159,21 @@ def train(fullimages, masks, epochs):
             fullbatch = next(fullitr)
 
         # ---- Actual training ----
-        maskbatch = train_step(fullbatch, masks)
+        maskbatch, fake_output, real_output, real_loss, fake_loss = train_step(fullbatch, masks)
+
+        fake_acuracy = 0
+        threshold = 5
+        for result in fake_output : 
+          fake_acuracy += int(result < -threshold)
+        print("fake acuracy : ", fake_acuracy / BATCH_SIZE)
+
+        real_acuracy = 0
+        for result in real_output : 
+          real_acuracy += int(threshold < result)
+        print("real acuracy : ", real_acuracy / BATCH_SIZE)
+
+        print(" »»»»» fake_output | real_output ", fake_output, real_output)
+        print(" »»»»» fake_loss | real_loss ", fake_loss, real_loss)
 
         template = '--> Epoch {}, Generator Loss: {}, Discriminator Loss: {}'
         print(template.format(
