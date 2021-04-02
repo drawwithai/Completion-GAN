@@ -1,6 +1,6 @@
 #!/usr/bin/python3.7
 from masks import *
-from generator import *
+from generator import make_generator_model as make_generator_model
 from discriminator import *
 from dataset_utils import *
 import tensorflow as tf
@@ -48,11 +48,13 @@ tf.keras.utils.plot_model(discriminator, "discriminator.png", show_shapes=True)
 # ---- Checkpoints settings ----
 checkpoint_dir = './training_checkpoints'
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
-checkpoint = tf.train.Checkpoint(step=tf.Variable(1),
-            generator_optimizer=generator_optimizer,
-            discriminator_optimizer=discriminator_optimizer,
-            generator=generator,
-            discriminator=discriminator)
+checkpoint = tf.train.Checkpoint(
+        step=tf.Variable(1),
+        generator_optimizer=generator_optimizer,
+        discriminator_optimizer=discriminator_optimizer,
+        generator=generator,
+        discriminator=discriminator
+    )
 manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
 
 # ---- Training loops settings ----
@@ -198,7 +200,6 @@ def train(fullimages, masks, epochs):
             print("Saved checkpoint for step {}: {}".format(int(checkpoint.step), path))
 
         print('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
-
         # ---- Generate after the final epoch ----
         display.clear_output(wait=True)
         # generate_and_save_images(

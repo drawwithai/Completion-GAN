@@ -3,6 +3,7 @@ from tensorflow.keras import layers
 
 # ---- Generator model ----
 
+
 def make_generator_model():
 
     # SETTINGS :
@@ -20,17 +21,33 @@ def make_generator_model():
     inputs = layers.Concatenate(axis=3)([masked_img_input, mask_input, noise_input])
 
     # ---- Defining layers ----
-    conv2d_1 = layers.Conv2D(3, (5, 5), strides=(1, 1), padding='same', input_shape=(IMGRES, IMGRES, 3))(inputs)
+    conv2d_1 = layers.Conv2D(
+                3,
+                (5, 5),
+                strides=(1, 1),
+                padding='same',
+                input_shape=(IMGRES, IMGRES, 3)
+            )(inputs)
     batch_norm = layers.BatchNormalization()(conv2d_1)
     leaky_relu_1 = layers.LeakyReLU()(batch_norm)
 
     def uplayer(depth, conv, fac, prev_layer):
-        tmp = layers.Conv2DTranspose(depth, (conv, conv), strides=(fac, fac), padding='same')(prev_layer)
+        tmp = layers.Conv2DTranspose(
+              depth,
+              (conv, conv),
+              strides=(fac, fac),
+              padding='same'
+            )(prev_layer)
         tmp = layers.BatchNormalization()(tmp)
         return layers.LeakyReLU()(tmp)
 
     def downlayer(depth, conv, fac, prev_layer):
-        tmp = layers.Conv2D(depth, (conv, conv), strides=(fac, fac), padding='same')(prev_layer)
+        tmp = layers.Conv2D(
+                    depth,
+                    (conv, conv),
+                    strides=(fac, fac),
+                    padding='same'
+                )(prev_layer)
         tmp = layers.BatchNormalization()(tmp)
         return layers.LeakyReLU()(tmp)
 
@@ -45,7 +62,14 @@ def make_generator_model():
     tmp = uplayer(32, 3, 2, tmp)
     tmp = uplayer(8, 5, 1, tmp)
 
-    tmp = layers.Conv2D(1, (7, 7), strides=(1, 1), padding='same', use_bias=False, activation='tanh')(tmp)
+    tmp = layers.Conv2D(
+                1,
+                (7, 7),
+                strides=(1, 1),
+                padding='same',
+                use_bias=False,
+                activation='tanh'
+            )(tmp)
 
     model = tf.keras.Model(
                 inputs=[masked_img_input, mask_input, noise_input],
