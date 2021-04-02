@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras import layers
 
+
 # ---- Discriminator model ----
 def make_discriminator_model():
 
@@ -20,8 +21,8 @@ def make_discriminator_model():
         model.add(layers.LeakyReLU())
         model.add(layers.Dropout(0.3))
 
-    x = 4
-    
+    x = 2
+
     layer(16 * x, 5, 2)
     layer(32 * x, 5, 2)
     layer(64 * x, 5, 2)

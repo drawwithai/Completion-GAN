@@ -1,6 +1,6 @@
 #!/usr/bin/python3.7
 from masks import *
-from generator import make_generator_model as make_generator_model
+from generator import *
 from discriminator import *
 from dataset_utils import *
 import tensorflow as tf
@@ -20,7 +20,7 @@ import random
 import os
 
 # Disable GPU
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 # ---- Manage launch arguments ----
 parser = argparse.ArgumentParser(description='Mask all images from input dir to output dir')
@@ -58,7 +58,7 @@ checkpoint = tf.train.Checkpoint(
 manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
 
 # ---- Training loops settings ----
-EPOCHS = 200
+EPOCHS = 500
 BUFFER_SIZE = 60000
 BATCH_SIZE = args.batch
 num_examples_to_generate = BATCH_SIZE
@@ -67,7 +67,7 @@ IMGRES = 256
 # ---- Loading Dataset ----
 # Loads local images if specified,
 # otherwise loads oneline45 dataset (deprecated)
-if args.datadir is not None :
+if args.datadir is not None:
     images = load_images(args.datadir + '*', BUFFER_SIZE)
     print(" >>>>>> Load custom dataset :", args.datadir)
 else :
@@ -90,6 +90,7 @@ discriminator_metric = tf.keras.metrics.Mean('generator_loss', dtype=tf.float32)
 maskarray = [generate_random_mask() for _ in range(BATCH_SIZE)]
 maskarray = tf.stack(maskarray)
 
+
 @tf.function
 def train_step(images, masks):
 
@@ -109,7 +110,6 @@ def train_step(images, masks):
         noise = tf.random.normal([BATCH_SIZE, 256, 256, 1])
 
         return [img, (img_masked, masks, noise)]
-
 
     # Process all images and put them in 2 tables
     images = process_image(images, masks)
@@ -165,23 +165,24 @@ def train(fullimages, masks, epochs):
 
         fake_acuracy = 0
         threshold = 5
-        for result in fake_output : 
-          fake_acuracy += int(result < -threshold)
+        for result in fake_output:
+            fake_acuracy += int(result < -threshold)
         print("fake acuracy : ", fake_acuracy / BATCH_SIZE)
 
         real_acuracy = 0
-        for result in real_output : 
-          real_acuracy += int(threshold < result)
+        for result in real_output:
+            real_acuracy += int(threshold < result)
         print("real acuracy : ", real_acuracy / BATCH_SIZE)
 
-        print(" »»»»» fake_output | real_output ", fake_output, real_output)
-        print(" »»»»» fake_loss | real_loss ", fake_loss, real_loss)
+        print(" >>>>> fake_output | real_output ", fake_output, real_output)
+        print(" >>>>> fake_loss | real_loss ", fake_loss, real_loss)
 
         template = '--> Epoch {}, Generator Loss: {}, Discriminator Loss: {}'
-        print(template.format(
-                epoch+1,
-                generator_metric.result(),
-                discriminator_metric.result())
+        print(
+                template.format(
+                    epoch+1,
+                    generator_metric.result(),
+                    discriminator_metric.result())
         )
 
         generator_metric.reset_states()
