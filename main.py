@@ -109,12 +109,10 @@ def train_step(images, masks):
         # Generate random noise
         noise = tf.random.normal([BATCH_SIZE, 256, 256, 1])
 
-        return [img, (img_masked, masks, noise)]
+        return img, (img_masked, masks, noise)
 
     # Process all images and put them in 2 tables
-    images = process_image(images, masks)
-    full = images[0]
-    masked = images[1]
+    full, masked = process_image(images, masks)
     # print(" >> images processing done << : ", images)
 
     # ---- Gradient descent ----
@@ -136,7 +134,7 @@ def train_step(images, masks):
     generator_metric(gen_loss)
     discriminator_metric(disc_loss)
 
-    return images[1], fake_output, real_output, real_loss, fake_loss
+    return masked, fake_output, real_output, real_loss, fake_loss
 
 
 # ---- TRAIN THE MODELS ----
@@ -153,7 +151,6 @@ def train(fullimages, masks, epochs):
 
     for epoch in range(epochs):
         start = time.time()
-        print(" >> >  > Starting epoch : ", epoch + 1, " << <  < ")
         try:
             fullbatch = next(fullitr)
         except StopIteration:
@@ -163,10 +160,23 @@ def train(fullimages, masks, epochs):
         # ---- Actual training ----
         maskbatch, fake_output, real_output, real_loss, fake_loss = train_step(fullbatch, masks)
 
+        # Produce images for the GIF as we go
+        display.clear_output(wait=True)
+        generate_and_save_images(generator,
+                                 epoch + 1,
+                                 maskbatch)
+
+        # Save the model every 15 epochs
+        checkpoint.step.assign_add(1)
+        if (epoch + 1) % 25 == 0:
+            path = manager.save()
+            print("Saved checkpoint for step {}: {}".format(int(checkpoint.step), path))
+
         fake_acuracy = 0
         threshold = 5
         for result in fake_output:
             fake_acuracy += int(result < -threshold)
+        print(" >  > >> Epoch : ", epoch + 1, " << <  < ")
         print("fake acuracy : ", fake_acuracy / BATCH_SIZE)
 
         real_acuracy = 0
@@ -187,18 +197,6 @@ def train(fullimages, masks, epochs):
 
         generator_metric.reset_states()
         discriminator_metric.reset_states()
-
-        # Produce images for the GIF as we go
-        display.clear_output(wait=True)
-        generate_and_save_images(generator,
-                                 epoch + 1,
-                                 maskbatch)
-
-        # Save the model every 15 epochs
-        checkpoint.step.assign_add(1)
-        if (epoch + 1) % 25 == 0:
-            path = manager.save()
-            print("Saved checkpoint for step {}: {}".format(int(checkpoint.step), path))
 
         print('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
         # ---- Generate after the final epoch ----
@@ -222,6 +220,7 @@ def generate_and_save_images(model, epoch, test_input):
         plt.axis('off')
 
     plt.savefig('./results/image_at_epoch_{:04d}.png'.format(epoch))
+    plt.savefig('./results/00last.png')
     plt.close()
     #plt.show()
 

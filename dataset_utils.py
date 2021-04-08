@@ -41,4 +41,4 @@ def load_images(path, buffer_size):
 
 
 def batch_and_fetch_dataset(ds, batch_size):
-    return ds.batch(batch_size).cache().prefetch(-1)
+  return ds.batch(batch_size).cache().prefetch(-1)
