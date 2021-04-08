@@ -1,3 +1,5 @@
+from layers import *
+
 import tensorflow as tf
 from tensorflow.keras import layers
 import math
@@ -22,38 +24,31 @@ def make_generator_model():
     inputs = layers.Concatenate(axis=3)([masked_img_input, mask_input, noise_input])
 
     # ---- Defining layers ----
-    conv2d_1 = layers.Conv2D(
+    tmp = layers.Conv2D(
                 3,
                 (5, 5),
                 strides=(1, 1),
                 padding='same',
                 input_shape=(IMGRES, IMGRES, 3)
             )(inputs)
-    batch_norm = layers.BatchNormalization()(conv2d_1)
-    leaky_relu_1 = layers.LeakyReLU()(batch_norm)
+    tmp = layers.BatchNormalization()(tmp)
+    tmp = layers.LeakyReLU()(tmp)
 
-    def uplayer(prev_layer):
-        tmp = layers.UpSampling2D(size=(2,2))(prev_layer)
-        tmp = layers.BatchNormalization()(tmp)
-        return layers.LeakyReLU()(tmp)
+    depth = 16
 
-    def downlayer(prev_layer):
-        tmp = layers.AveragePooling2D(pool_size=(2,2))(prev_layer)
-        tmp = layers.BatchNormalization()(tmp)
-        return layers.LeakyReLU()(tmp)
+    # 256
+    tmp = Convolution(tmp, depth * 1, 3)  # 128
+    tmp = Convolution(tmp, depth * 2, 3)  # 64
+    tmp = Convolution(tmp, depth * 4, 3)  # 32
 
-    tmp = downlayer(leaky_relu_1)
-    tmp = downlayer(tmp)
+    tmp = DilatedConvolution(tmp, depth * 8, 5) # 32
+    tmp = DilatedConvolution(tmp, depth * 8, 5) # 32
+    tmp = DilatedConvolution(tmp, depth * 8, 5) # 32
+    tmp = DilatedConvolution(tmp, depth * 8, 5) # 32
 
-    tmp = downlayer(tmp)
-    tmp = downlayer(tmp)
-    tmp = downlayer(tmp)
-
-    tmp = uplayer(tmp)
-    tmp = uplayer(tmp)
-    tmp = uplayer(tmp)
-    tmp = uplayer(tmp)
-    tmp = uplayer(tmp)
+    tmp = Deconvolution(tmp, depth * 4, 3)  # 64
+    tmp = Deconvolution(tmp, depth * 2, 3)  # 128
+    tmp = Deconvolution(tmp, depth * 1, 3)  # 256
 
     tmp = layers.Conv2D(
                 1,

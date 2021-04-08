@@ -176,35 +176,30 @@ def train(fullimages, masks, epochs):
         threshold = 5
         for result in fake_output:
             fake_acuracy += int(result < -threshold)
-        print(" >  > >> Epoch : ", epoch + 1, " << <  < ")
-        print("fake acuracy : ", fake_acuracy / BATCH_SIZE)
 
         real_acuracy = 0
         for result in real_output:
             real_acuracy += int(threshold < result)
-        print("real acuracy : ", real_acuracy / BATCH_SIZE)
 
-        print(" >>>>> fake_output | real_output ", fake_output, real_output)
-        print(" >>>>> fake_loss | real_loss ", fake_loss, real_loss)
+        print()
+        print("======= Epoch : %4d =======" % (epoch +1))
 
-        template = '--> Epoch {}, Generator Loss: {}, Discriminator Loss: {}'
-        print(
-                template.format(
-                    epoch+1,
-                    generator_metric.result(),
-                    discriminator_metric.result())
-        )
+        print("Generator Loss: %3.3f, Discriminator Loss: %3.3f" % (generator_metric.result(),discriminator_metric.result()))
+        print("Took %3.3f sec" % (time.time()-start))
+
+        col = 4
+        n = (4 + 3*col + 6*col +1)
+        print("=" * n)
+        print("from | %-6s | %-7s | %-7s | %-7s" % ("scores", "min", "max", "avg"))
+        print("fake | %3.0f%%   | %+7.3f | %+7.3f | %+7.3f" % (fake_acuracy * 100 / BATCH_SIZE, np.min(fake_output), np.max(fake_output), np.average(fake_output)))
+        print("real | %3.0f%%   | %+7.3f | %+7.3f | %+7.3f" % (real_acuracy * 100 / BATCH_SIZE, np.min(real_output), np.max(real_output), np.average(real_output)))
+        print("=" * n)
 
         generator_metric.reset_states()
         discriminator_metric.reset_states()
 
-        print('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
         # ---- Generate after the final epoch ----
         display.clear_output(wait=True)
-        # generate_and_save_images(
-            # generator,
-            # 9999,
-            # maskbatch)
 
 
 # ---- Generate images and save them as png ----
@@ -220,7 +215,7 @@ def generate_and_save_images(model, epoch, test_input):
         plt.axis('off')
 
     plt.savefig('./results/image_at_epoch_{:04d}.png'.format(epoch))
-    plt.savefig('./results/00last.png')
+    plt.savefig('./results/00_last.png')
     plt.close()
     #plt.show()
 
