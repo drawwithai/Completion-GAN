@@ -34,7 +34,7 @@ def make_generator_model():
     tmp = layers.BatchNormalization()(tmp)
     tmp = layers.LeakyReLU()(tmp)
 
-    depth = 16
+    depth = 32
 
     # 256
     tmp = Convolution(tmp, depth * 1, 3)  # 128
