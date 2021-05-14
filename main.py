@@ -19,6 +19,38 @@ import argparse
 import random
 import os
 
+"""
+Completion GAN's main file.
+
+USAGE :
+
+  main batch_size [images_folder]
+
+    batch_size : 
+        Number of images to take at once for training. 
+        Must be tweaked according to available ram memory.
+        Higher is better.
+        
+    images_folder :
+        If given, it will train on images in given folder.
+        Load the dataset oneline45 if not given.
+
+Divided in three parts : 
+
+  setup : Create models and load the dataset
+  train : Training and monitoring functions
+  main  : Launch the training
+
+Traning settings are available below :
+
+  EPOCHS                    : Number of train steps to perform
+  BUFFER_SIZE               : smth used to cache dataset, defaut value on Tensorflow tutorials
+  BATCH_SIZE                : Number of images to take at once. Must be tweaked according to available ram memory
+  num_examples_to_generate  : Number of images generated to monitor generator outputs
+  IMGRES                    : Images resolution. Don't change this unless you're ready to tweak all values (and probably debug things)
+
+"""
+
 # Disable GPU
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
@@ -27,6 +59,13 @@ parser = argparse.ArgumentParser(description='Mask all images from input dir to 
 parser.add_argument('batch', type=int, help='Batch Size')
 parser.add_argument('datadir', type=str, nargs='?')
 args = parser.parse_args()
+
+# ---- Training loops settings ----
+EPOCHS = 500
+BUFFER_SIZE = 60000
+BATCH_SIZE = args.batch
+num_examples_to_generate = BATCH_SIZE
+IMGRES = 256
 
 # ---- Initialization ----
 print(tf.__version__)
@@ -56,13 +95,6 @@ checkpoint = tf.train.Checkpoint(
         discriminator=discriminator
     )
 manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
-
-# ---- Training loops settings ----
-EPOCHS = 500
-BUFFER_SIZE = 60000
-BATCH_SIZE = args.batch
-num_examples_to_generate = BATCH_SIZE
-IMGRES = 256
 
 # ---- Loading Dataset ----
 # Loads local images if specified,
@@ -219,10 +251,11 @@ def generate_and_save_images(model, epoch, test_input):
     plt.close()
     #plt.show()
 
+if __name__ == "__main__" :
 
-# Make sure that the results folder exists
-if not os.path.exists('./results'):
-    os.mkdir('./results')
+  # Make sure that the results folder exists
+  if not os.path.exists('./results'):
+      os.mkdir('./results')
 
-# Call the training
-train(dataset, maskarray, EPOCHS)
+  # Call the training
+  train(dataset, maskarray, EPOCHS)

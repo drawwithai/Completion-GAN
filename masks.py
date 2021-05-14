@@ -3,8 +3,11 @@ import cv2
 import tensorflow as tf
 import numpy as np
 
-
 def generate_random_mask():
+    """
+    Utilities to generate random masks as 256x256x1 tensors
+    : return : 256x256x1 tf.Tensor of 0 and 1
+    """
 
     HEIGHT = 256
     WIDTH = 256

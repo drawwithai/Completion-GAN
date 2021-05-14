@@ -5,12 +5,36 @@ from tensorflow.keras import layers
 import math
 import numpy as np
 
-# ---- Generator model ----
+"""
+Definition of Generator's Model.
+
+It take three inputs of ( masked_image, mask, random_noise ) each of shape 256x256x1
+And output an image with the same shape
+
+The model consist of two facing funnels, with a kind of blender in the midle
+
+The first part consist of cascading convolutions layers to compress image to a more abstract form.
+The second part is a pipe of dilated convolution layers, the idea was to propagate global image features to prepare the reconstruction.
+The last part is a cascade of deconvolution layers, converting abstract features to a new image.
+
+Noise input should be moved further inside the model instead of with the image and the mask.
+
+Loss function is a bit weird.
+It's a linear combinaison of three losses :
+
+  - preceipt_loss : measure efficiency at fooling the discriminator
+  - context_loss : try to measure if the non masked area is preserved
+  - fillrate : try to punish the generator if he doesn't try to draw in the masked area
+"""
 
 def make_generator_model():
+    """
+    : return : the generator as a tf.keras.Model
+    """
 
     # SETTINGS :
-    IMGRES = 256
+    IMGRES = 256  # Input images resolution
+    depth = 32    # 
 
     # ---- Defining inputs ----
     # Masked image
@@ -34,7 +58,6 @@ def make_generator_model():
     tmp = layers.BatchNormalization()(tmp)
     tmp = layers.LeakyReLU()(tmp)
 
-    depth = 32
 
     # 256
     tmp = Convolution(tmp, depth * 1, 3)  # 128
